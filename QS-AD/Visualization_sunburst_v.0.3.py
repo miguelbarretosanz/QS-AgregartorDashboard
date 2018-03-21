@@ -78,13 +78,13 @@ def make_plot(source):
 
 
 def get_dataset (src,timestamp):
-    src = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
-    duration_index = (np.where(src['START DATE(UTC)']== timestamp)[0])
+    
+    duration_index = np.where(src['Start_Date']== timestamp)
     LCday,LCtime = timestamp.split(" ",1)
     
     start_time = LCtime
-    duration = src[" DURATION"][duration_index[0]]
-    activity_name= src[" NAME"][duration_index[0]]
+    duration = src["Duration"][duration_index[0][0]]
+    activity_name= src["Name"][duration_index[0][0]]
     
     #Convert HH:MM:SS format in radians 
     ts = time.strptime(start_time, "%H:%M:%S") 
@@ -139,14 +139,48 @@ source = ColumnDataSource(data=dict(
 
 
 
+
 LC_data = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
+sd_object2 =LC_data['START DATE(UTC)']
+LC_data.columns = ['Start_Date', 'End_Date','Start_Time','End_time',
+                       'Duration','Name','Location']
+LC_data['Start_Date'] = pd.to_datetime(LC_data.Start_Date)
+#sd_object =LC_data['Start_Date'].astype(object)
+
+
+#get timestamp per day
+unique_days_list = LC_data.Start_Date.dt.date
+index_hours_same_day = np.where(LC_data.Start_Date.dt.date==unique_days_list.unique()[2])
+index_hours_same_day[0][4]
+evenst_at_day = LC_data.Start_Date[list(index_hours_same_day[0][:])]
+
+columns_ud = ['Unique_Days']
+New_data_days_unique = pd.DataFrame(unique_days_list.index,columns=columns_ud)
+
+for i in New_data_days_unique.index:
+    New_data_days_unique['Unique_Days'][i]= pd.Timestamp.strftime(unique_days_list[i],'%Y-%m-%d')
+
+
+#from timedate to string
+columns = ['Start_Date']
+New_data = pd.DataFrame(index=LC_data['Start_Date'].index,columns=columns)
+for i in New_data.index:
+    New_data['Start_Date'][i]= pd.Timestamp.strftime(LC_data['Start_Date'][i],'%Y-%m-%d %H:%M:%S')
+
+List_to_select = sorted(list(set(New_data_days_unique['Unique_Days'])))
+
+List_unique = New_data_days_unique['Unique_Days'].tolist()
+
 timestamp='2017-01-22 10:11:30'
 source=get_dataset(LC_data,timestamp)
 plot = make_plot(source)
 
+
 #Timestamp selection
-select_timestamp = Select(title="Datastamp", value="foo", 
-                          options=pd.Series.tolist(LC_data['START DATE(UTC)']))
+#select_timestamp = Select(title="Timestamp", value="foo", 
+#                          options=List_unique)
+select_timestamp = Select(title="Timestamp", value="foo", 
+                          options=List_to_select)
 select_timestamp.on_change('value', update_plot)
 
 
