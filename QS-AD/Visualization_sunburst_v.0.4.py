@@ -25,14 +25,17 @@ from bokeh.io import curdoc
 #Import modules for conversions to radians.
 import math
 #Import modules for time management and time zones
-import time
+import time, datetime
+#Color palettes
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def make_plot(source):
     
     hover = HoverTool(
             names=["anular_wedges"],
             tooltips=[
-    ("Activity", "@Activity_name"),
+    ("Activity", "@Name"),
     ("(ir,or)", "(@inner_radius, @outer_radius)"),
     ("color", "@color"),
     ])
@@ -68,45 +71,79 @@ def make_plot(source):
     
     return plot
 
-def get_dataset (src,timestamp):
+def get_dataset (src, unique_days_list, selected_day):
     
-    duration_index = np.where(src['Start_Date']== timestamp)
-    LCday,LCtime = timestamp.split(" ",1)
+    def calculate_angles(start_time,duration):
+        #Convert HH:MM:SS format in radians 
+        ts = time.strptime(start_time, "%H:%M:%S") 
+        hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
+        hour_rad = math.radians(hour * 15.0)
+        #add "pi/2" to transform radians to a 24 hours clock form.
+        hour_in_radians_to_plot = -hour_rad + np.pi/2
+
+        #Use duration and convert seconds in radians
+        sec_rad = time.gmtime(duration)
+        hour_duration = (sec_rad[3] + (sec_rad[4]/60))
+        hour_rad_duration = math.radians(hour_duration * 15.0)
+        duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
+        
+        start_angle= hour_in_radians_to_plot - hour_rad_duration
+        end_angle= duration_in_radians_to_plot - hour_rad_duration
+        
+        return start_angle, end_angle
     
-    start_time = LCtime
-    duration = src["Duration"][duration_index[0][0]]
-    activity_name= src["Name"][duration_index[0][0]] 
+    index_hours_same_day = np.where(unique_days_list==datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
+    events_at_day = LC_data.Start_Date[list(index_hours_same_day[0][:])]
     
-    #Convert HH:MM:SS format in radians 
-    ts = time.strptime(start_time, "%H:%M:%S") 
-    hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
-    hour_rad = math.radians(hour * 15.0)
+    start_time_list_to_plot = events_at_day.dt.time
+    start_time_list_to_plot_dt = start_time_list_to_plot.to_frame()
+    duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
+    names_list_to_plot = src.iloc[events_at_day.index[:],[5]]
     
-    #add "pi/2" to transform radians to a 24 hours clock form.
-    hour_in_radians_to_plot = -hour_rad + np.pi/2
+    #create a dataframe with the values to plot
+    duration_list_to_plot.reset_index(drop=True, inplace=True)
+    names_list_to_plot.reset_index(drop=True, inplace=True)
+    start_time_list_to_plot_dt.reset_index(drop=True, inplace=True)
     
-    #Convert seconds in radians
-    sec_rad = time.gmtime(duration)
-    hour_duration = (sec_rad[3] + (sec_rad[4]/60))
-    hour_rad_duration = math.radians(hour_duration * 15.0)
-    duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
+    result = pd.concat([duration_list_to_plot, names_list_to_plot], axis=1)
+    result2 = pd.concat([result,start_time_list_to_plot_dt] , axis=1)
     
-    start_angle= hour_in_radians_to_plot - hour_rad_duration
-    end_angle= duration_in_radians_to_plot - hour_rad_duration
+    df_start_end_angle = pd.DataFrame(index=range(0,result2.index.size),columns=['start_angle','end_angle'])
+
+    for i in range(0, result2.index.size):
+        s_d = str(result2.iloc[i]['Start_Date'])
+        du = result2.iloc[i]['Duration']
+        angles = calculate_angles(s_d,du)
+        df_start_end_angle['start_angle'][i]= angles[0]
+        df_start_end_angle['end_angle'][i] = angles[1]
+        
+    result3 = pd.concat([result2,df_start_end_angle] , axis=1)
     
-    df = pd.DataFrame({'start_angle':[start_angle],
-                   'end_angle':[end_angle],
-                   'color':["pink"],
-                    'inner_radius':[fr_inner_radius],
-                    'outer_radius':[fr_outer_radius],
-                    'Activity_name':[activity_name],
-                   })
+    df_inner_outer_radius = pd.DataFrame(index=range(0,result2.index.size),columns=['inner_radius','outer_radius'])
+    df_colors = pd.DataFrame(index=range(0,result2.index.size),columns=['color'])
+        
+    for i in range(0, result2.index.size):
+        df_inner_outer_radius['inner_radius'][i]= fr_inner_radius
+        df_inner_outer_radius['outer_radius'][i] = fr_outer_radius
     
-    return ColumnDataSource(data=df)
+    result4 = pd.concat([result3,df_inner_outer_radius] , axis=1)
+    
+    #colors
+    palette = sns.color_palette("Set3", result2.index.size)
+    palette = palette.as_hex()
+       
+    for i in range(0, result2.index.size):      
+        df_colors['color'][i]= palette[i]
+        
+    result5 = pd.concat([result4,df_colors] , axis=1)  
+    
+    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,names_list_to_plot] , axis=1)
+    
+    return ColumnDataSource(data=final_df)
   
 def update_plot(attrname, old, new):
-    timestamp = select_timestamp.value
-    src = get_dataset(LC_data,timestamp)
+    selected_day = select_timestamp.value
+    src = get_dataset(LC_data,unique_days_list,selected_day)
     source.data.update(src.data)
 
 #Fixed plot's atributes   
@@ -129,7 +166,7 @@ LC_data['Start_Date'] = pd.to_datetime(LC_data.Start_Date)
 
 #Get all the timestamps per a selected day
 unique_days_list = LC_data.Start_Date.dt.date
-index_hours_same_day = np.where(LC_data.Start_Date.dt.date==unique_days_list.unique()[2])
+index_hours_same_day = np.where(unique_days_list==unique_days_list.unique()[2])
 index_hours_same_day[0][4]
 events_at_day = LC_data.Start_Date[list(index_hours_same_day[0][:])]
 
@@ -146,12 +183,12 @@ for i in New_data.index:
 #List to be shown in the "select button"
 List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
 
-timestamp='2017-01-22 10:11:30'
-source=get_dataset(LC_data,timestamp)
+selected_day='2017-01-22'
+source=get_dataset(LC_data,unique_days_list,selected_day)
 plot = make_plot(source)
 
 #Timestamp selection
-select_timestamp = Select(title="Timestamp", value="foo", options=List_to_select_days)
+select_timestamp = Select(title="Day", value="foo", options=List_to_select_days)
 select_timestamp.on_change('value', update_plot)
 
 
