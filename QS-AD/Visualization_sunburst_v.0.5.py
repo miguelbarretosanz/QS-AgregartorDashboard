@@ -42,7 +42,7 @@ def make_plot(source):
                   min_border=0, outline_line_color="white", background_fill_color="#ffffff",)
     
     plot.annular_wedge(x=0, y=0, inner_radius='inner_radius', outer_radius='outer_radius',start_angle='start_angle', end_angle='end_angle', 
-                       color='color', alpha=0.7, hover_color="lightgrey", source=source,name="anular_wedges")
+                       color='color', alpha=1.0, hover_color="lightgrey", source=source,name="anular_wedges",legend='Name')
     
     #Fixed attributes
     plot.xgrid.grid_line_color = None
@@ -91,25 +91,25 @@ def get_dataset (src, unique_days_list, selected_day):
         return start_angle, end_angle
     
     index_hours_same_day = np.where(unique_days_list==datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
-    events_at_day = LC_data.Start_Date[list(index_hours_same_day[0][:])]
+    events_at_day = LC_data.Start_Time_Local[list(index_hours_same_day[0][:])]
     
     start_time_list_to_plot = events_at_day.dt.time
     start_time_list_to_plot_dt = start_time_list_to_plot.to_frame()
     duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
-    names_list_to_plot = src.iloc[events_at_day.index[:],[5]]
+    events_list_to_plot = src.iloc[events_at_day.index[:],[5]]
     
-    #create a dataframe with the values to plot
+    #create a dataframes with the values to plot
     duration_list_to_plot.reset_index(drop=True, inplace=True)
-    names_list_to_plot.reset_index(drop=True, inplace=True)
+    events_list_to_plot.reset_index(drop=True, inplace=True)
     start_time_list_to_plot_dt.reset_index(drop=True, inplace=True)
     
-    result = pd.concat([duration_list_to_plot, names_list_to_plot], axis=1)
+    result = pd.concat([duration_list_to_plot, events_list_to_plot], axis=1)
     result2 = pd.concat([result,start_time_list_to_plot_dt] , axis=1)
     
     df_start_end_angle = pd.DataFrame(index=range(0,result2.index.size),columns=['start_angle','end_angle'])
 
     for i in range(0, result2.index.size):
-        s_d = str(result2.iloc[i]['Start_Date'])
+        s_d = str(result2.iloc[i]['Start_Time_Local'])
         du = result2.iloc[i]['Duration']
         angles = calculate_angles(s_d,du)
         df_start_end_angle['start_angle'][i]= angles[0]
@@ -129,7 +129,7 @@ def get_dataset (src, unique_days_list, selected_day):
     for i in range(0, result2.index.size):      
         df_colors['color'][i]= palette[i]
            
-    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,names_list_to_plot] , axis=1)
+    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot] , axis=1)
     
     return ColumnDataSource(data=final_df)
   
@@ -137,6 +137,19 @@ def update_plot(attrname, old, new):
     selected_day = select_day.value
     src = get_dataset(LC_data,unique_days_list,selected_day)
     source.data.update(src.data)
+
+def activities_color_table (array_activities):
+    df_activity_colors = pd.DataFrame(index=range(1,array_activities.size,1),columns=['Activities','Colors'])
+    palette = sns.color_palette("Set3", array_activities.size)
+    palette = palette.as_hex()
+    
+    for i in range(0,array_activities.size,1):
+        df_activity_colors['Activities'][i]=array_activities[i]
+        df_activity_colors['Colors'][i] = palette[i]
+        
+    return df_activity_colors
+        
+
 
 #Fixed plot's atributes  
     
@@ -153,15 +166,16 @@ tr_outer_radius = fr_outer_radius+52+2+42
 LC_data = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
 #Columns names were changed because the orinals have some espaces and special characters
 # that makes more complicated the string manipulation. For instace : ' NAME' , 'START DATE(UTC)'.
-LC_data.columns = ['Start_Date', 'End_Date','Start_Time','End_time','Duration','Name','Location']
+LC_data.columns = ['Start_Date_UTC', 'End_Date_UTC','Start_Time_Local','End_time_Local','Duration','Name','Location']
 #Convert 'Start_Date' to datetime64[ns] to use pands Time Series / Date functionality.
-LC_data['Start_Date'] = pd.to_datetime(LC_data.Start_Date)
+#To-do : the function "to_datetime" in converting 'Start_Time_Local' to UTC I wanto to keep in local time.
+LC_data['Start_Time_Local'] = pd.to_datetime(LC_data.Start_Time_Local)
 
 #Get all the timestamps per a unique selected day
-unique_days_list = LC_data.Start_Date.dt.date
+unique_days_list = LC_data.Start_Time_Local.dt.date
 index_hours_same_day = np.where(unique_days_list==unique_days_list.unique()[2])
 index_hours_same_day[0][4]
-events_at_day = LC_data.Start_Date[list(index_hours_same_day[0][:])]
+events_at_day = LC_data.Start_Time_Local[list(index_hours_same_day[0][:])]
 #Create a dataframe to store unique_days_list in 
 columns_ud = ['Unique_Days']
 New_data_days_unique = pd.DataFrame(unique_days_list.index,columns=columns_ud)
@@ -169,6 +183,10 @@ for i in New_data_days_unique.index:
     New_data_days_unique['Unique_Days'][i]= pd.Timestamp.strftime(unique_days_list[i],'%Y-%m-%d')
 #List to be shown in the "select button"
 List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
+
+#Colors table per activity
+colors_table = activities_color_table(LC_data.Name.unique())
+
 
 selected_day='2017-01-22'
 source=get_dataset(LC_data,unique_days_list,selected_day)
