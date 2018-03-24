@@ -28,9 +28,10 @@ import math
 import time, datetime
 #Color palette
 import seaborn as sns
+import matplotlib as mpl
+
 
 def make_plot(source):
-    
     hover = HoverTool(
             names=["anular_wedges"],
             tooltips=[
@@ -42,7 +43,7 @@ def make_plot(source):
                   min_border=0, outline_line_color="white", background_fill_color="#ffffff",)
     
     plot.annular_wedge(x=0, y=0, inner_radius='inner_radius', outer_radius='outer_radius',start_angle='start_angle', end_angle='end_angle', 
-                       color='color', alpha=1.0, hover_color="lightgrey", source=source,name="anular_wedges",legend='Name')
+                       color='color', alpha=0.9, hover_color='color',hover_line_color="black", hover_alpha = 0.5, source=source,name="anular_wedges",legend='Name')
     
     #Fixed attributes
     plot.xgrid.grid_line_color = None
@@ -69,7 +70,7 @@ def make_plot(source):
     
     return plot
 
-def get_dataset (src, unique_days_list, selected_day):
+def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     
     def calculate_angles(start_time,duration):
         #Convert HH:MM:SS format in radians 
@@ -89,7 +90,7 @@ def get_dataset (src, unique_days_list, selected_day):
         end_angle= duration_in_radians_to_plot - hour_rad_duration
         
         return start_angle, end_angle
-    
+    #Group events from the same day
     index_hours_same_day = np.where(unique_days_list==datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
     events_at_day = LC_data.Start_Time_Local[list(index_hours_same_day[0][:])]
     
@@ -98,7 +99,7 @@ def get_dataset (src, unique_days_list, selected_day):
     duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
     events_list_to_plot = src.iloc[events_at_day.index[:],[5]]
     
-    #create a dataframes with the values to plot
+    #create dataframe with the parameters to plot function
     duration_list_to_plot.reset_index(drop=True, inplace=True)
     events_list_to_plot.reset_index(drop=True, inplace=True)
     start_time_list_to_plot_dt.reset_index(drop=True, inplace=True)
@@ -116,18 +117,16 @@ def get_dataset (src, unique_days_list, selected_day):
         df_start_end_angle['end_angle'][i] = angles[1]
     
     df_inner_outer_radius = pd.DataFrame(index=range(0,result2.index.size),columns=['inner_radius','outer_radius'])
-    df_colors = pd.DataFrame(index=range(0,result2.index.size),columns=['color'])
         
     for i in range(0, result2.index.size):
         df_inner_outer_radius['inner_radius'][i]= fr_inner_radius
         df_inner_outer_radius['outer_radius'][i] = fr_outer_radius
     
     #colors
-    palette = sns.color_palette("Set3", result2.index.size)
-    palette = palette.as_hex()
-       
-    for i in range(0, result2.index.size):      
-        df_colors['color'][i]= palette[i]
+    #Match events with its respective color
+    df_colors = pd.DataFrame(index=range(0,events_list_to_plot.index.size),columns=['color'])
+    for i in range(0,events_list_to_plot.index.size):
+        df_colors.color[i] = df_activity_colors.Colors[np.where(events_list_to_plot.Name[i] == df_activity_colors.Activities)[0][0]]
            
     final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot] , axis=1)
     
@@ -135,13 +134,23 @@ def get_dataset (src, unique_days_list, selected_day):
   
 def update_plot(attrname, old, new):
     selected_day = select_day.value
-    src = get_dataset(LC_data,unique_days_list,selected_day)
+    src = get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
     source.data.update(src.data)
 
 def activities_color_table (array_activities):
-    df_activity_colors = pd.DataFrame(index=range(1,array_activities.size,1),columns=['Activities','Colors'])
-    palette = sns.color_palette("Set3", array_activities.size)
-    palette = palette.as_hex()
+    df_activity_colors = pd.DataFrame(index=range(0,array_activities.size,1),columns=['Activities','Colors'])
+    #Palette from https://stackoverflow.com/questions/33295120/how-to-generate-gif-256-colors-palette
+    pal2 = sns.color_palette('pastel').as_hex()
+    pal3 = sns.color_palette("Set1", 10).as_hex()
+    pal4 = sns.color_palette("Set2", 10).as_hex()
+    pal5 = sns.color_palette("Set3", 10).as_hex()
+    pal6 = sns.color_palette("BrBG", 7).as_hex()
+    pal7 = sns.color_palette("RdBu_r", 7).as_hex()
+    pal8 = sns.color_palette("coolwarm", 7).as_hex()
+    pal9 = sns.diverging_palette(10, 220, sep=80, n=7).as_hex()
+    
+    palette = np.concatenate((pal2,pal3,pal4,pal5,pal6,pal7,pal8,pal9), axis=0)
+      
     
     for i in range(0,array_activities.size,1):
         df_activity_colors['Activities'][i]=array_activities[i]
@@ -185,11 +194,11 @@ for i in New_data_days_unique.index:
 List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
 
 #Colors table per activity
-colors_table = activities_color_table(LC_data.Name.unique())
+df_activity_colors = activities_color_table(LC_data.Name.unique())
 
 
 selected_day='2017-01-22'
-source=get_dataset(LC_data,unique_days_list,selected_day)
+source=get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
 plot = make_plot(source)
 
 #Timestamp selection
