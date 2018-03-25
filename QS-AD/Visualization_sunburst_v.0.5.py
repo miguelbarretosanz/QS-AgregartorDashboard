@@ -26,12 +26,25 @@ from bokeh.io import curdoc
 import math
 #Import modules for time management and time zones
 import time, datetime
+import pytz
+from pytz import timezone
 #Color palette
 import seaborn as sns
-import matplotlib as mpl
 
 
 def make_plot(source):
+    """
+    Plot the annular wedges
+
+    Parameters
+    ----------
+    source : ColumnDataSources
+
+    Returns
+    -------
+    return : Figure
+    """
+    
     hover = HoverTool(
             names=["anular_wedges"],
             tooltips=[
@@ -90,10 +103,18 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
         end_angle= duration_in_radians_to_plot - hour_rad_duration
         
         return start_angle, end_angle
+    
     #Group events from the same day
     index_hours_same_day = np.where(unique_days_list==datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
-    events_at_day = LC_data.Start_Time_Local[list(index_hours_same_day[0][:])]
+    events_at_day = src.Start_Date_UTC[list(index_hours_same_day[0][:])]
     
+    #Time zones hours correction
+    events_at_day = events_at_day.dt.tz_localize('UTC')
+    #Get the time zone from "Start_Time_Local"
+    get_tz = LC_data.Start_Time_Local[index_hours_same_day[0][0]].split(" ")
+    time_zone = get_tz[3] 
+    events_at_day = events_at_day.dt.tz_convert(time_zone)
+  
     start_time_list_to_plot = events_at_day.dt.time
     start_time_list_to_plot_dt = start_time_list_to_plot.to_frame()
     duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
@@ -110,7 +131,7 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     df_start_end_angle = pd.DataFrame(index=range(0,result2.index.size),columns=['start_angle','end_angle'])
 
     for i in range(0, result2.index.size):
-        s_d = str(result2.iloc[i]['Start_Time_Local'])
+        s_d = str(result2.iloc[i]['Start_Date_UTC'])
         du = result2.iloc[i]['Duration']
         angles = calculate_angles(s_d,du)
         df_start_end_angle['start_angle'][i]= angles[0]
@@ -122,8 +143,7 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
         df_inner_outer_radius['inner_radius'][i]= fr_inner_radius
         df_inner_outer_radius['outer_radius'][i] = fr_outer_radius
     
-    #colors
-    #Match events with its respective color
+    #Match events with its respective color code
     df_colors = pd.DataFrame(index=range(0,events_list_to_plot.index.size),columns=['color'])
     for i in range(0,events_list_to_plot.index.size):
         df_colors.color[i] = df_activity_colors.Colors[np.where(events_list_to_plot.Name[i] == df_activity_colors.Activities)[0][0]]
@@ -150,26 +170,19 @@ def activities_color_table (array_activities):
     pal9 = sns.diverging_palette(10, 220, sep=80, n=7).as_hex()
     
     palette = np.concatenate((pal2,pal3,pal4,pal5,pal6,pal7,pal8,pal9), axis=0)
-      
-    
+       
     for i in range(0,array_activities.size,1):
         df_activity_colors['Activities'][i]=array_activities[i]
         df_activity_colors['Colors'][i] = palette[i]
         
     return df_activity_colors
         
-
-
 #Fixed plot's atributes  
-    
-#First ring (fr) parameters
-fr_inner_radius = 140
+fr_inner_radius = 140 #First ring (fr) parameters
 fr_outer_radius = 200    
-#Second ring (sr) parameters
-sr_inner_radius = fr_outer_radius+2
+sr_inner_radius = fr_outer_radius+2 #Second ring (sr) parameters
 sr_outer_radius = fr_outer_radius+52
-#third ring (tr) parameters
-tr_inner_radius = fr_outer_radius+52+2, 
+tr_inner_radius = fr_outer_radius+52+2, #third ring (tr) parameters
 tr_outer_radius = fr_outer_radius+52+2+42
 
 LC_data = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
@@ -178,13 +191,13 @@ LC_data = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
 LC_data.columns = ['Start_Date_UTC', 'End_Date_UTC','Start_Time_Local','End_time_Local','Duration','Name','Location']
 #Convert 'Start_Date' to datetime64[ns] to use pands Time Series / Date functionality.
 #To-do : the function "to_datetime" in converting 'Start_Time_Local' to UTC I wanto to keep in local time.
-LC_data['Start_Time_Local'] = pd.to_datetime(LC_data.Start_Time_Local)
+LC_data['Start_Date_UTC'] = pd.to_datetime(LC_data.Start_Date_UTC)  
 
-#Get all the timestamps per a unique selected day
-unique_days_list = LC_data.Start_Time_Local.dt.date
+#Get all the events' timestamps per unique selected day
+unique_days_list = LC_data.Start_Date_UTC.dt.date
 index_hours_same_day = np.where(unique_days_list==unique_days_list.unique()[2])
 index_hours_same_day[0][4]
-events_at_day = LC_data.Start_Time_Local[list(index_hours_same_day[0][:])]
+events_at_day = LC_data.Start_Date_UTC[list(index_hours_same_day[0][:])]
 #Create a dataframe to store unique_days_list in 
 columns_ud = ['Unique_Days']
 New_data_days_unique = pd.DataFrame(unique_days_list.index,columns=columns_ud)
