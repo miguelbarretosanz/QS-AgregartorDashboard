@@ -50,6 +50,7 @@ def make_plot(source):
             tooltips=[
     ("Activity", "@Name"),
     ("color", "@color"),
+    ("Time Zone","@Time_Zone"),
     ])
     
     plot = figure(width=700, height=700,tools=[hover], title="",x_axis_type=None, y_axis_type=None, x_range=(-420, 420), y_range=(-420, 420),
@@ -107,18 +108,85 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     #Group events from the same day
     index_hours_same_day = np.where(unique_days_list==datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
     events_at_day = src.Start_Date_UTC[list(index_hours_same_day[0][:])]
+    events_at_day = pd.to_datetime(events_at_day)
     
-    #Time zones hours correction
+    
+    #Time zones hours' correction
     events_at_day = events_at_day.dt.tz_localize('UTC')
     #Get the time zone from "Start_Time_Local"
     get_tz = LC_data.Start_Time_Local[index_hours_same_day[0][0]].split(" ")
     time_zone = get_tz[3] 
+    
+
+    if time_zone == "GMT+0": 
+        time_zone = "Africa/Casablanca"     
+    elif time_zone == "GMT+1":
+        time_zone = "Europe/Amsterdam"
+    elif time_zone == "CET":
+        time_zone = "CET"
+    elif time_zone == "CEST":
+        time_zone = "Africa/Johannesburg"   
+    elif time_zone == "GMT+10":
+        time_zone = "Australia/Brisbane"
+    elif time_zone == "GMT+11":
+        time_zone = "Etc/GMT+11"
+    elif time_zone == "GMT+12":
+        time_zone = "Etc/GMT+12"        
+    elif time_zone == "GMT+2":
+        time_zone = "Africa/Johannesburg"
+    elif time_zone == "GMT+3":
+        time_zone = "Asia/Istanbul"
+    elif time_zone == "GMT+4":
+        time_zone = "Asia/Dubai"
+    elif time_zone == "GMT+5":
+        time_zone = "Asia/Aqtobe"
+    elif time_zone == "GMT+6":
+        time_zone = "Asia/Thimbu"
+    elif time_zone == "GMT+7":
+        time_zone = "Asia/Jakarta"
+    elif time_zone == "GMT+8":
+        time_zone = "Asia/Hong_Kong"
+    elif time_zone == "GMT+9":
+        time_zone = "Asia/Tokyo"
+    elif time_zone == "GMT-0":
+        time_zone = "Atlantic/St_Helena"
+    elif time_zone == "GMT-1":
+        time_zone = "Atlantic/Cape_Verde"
+    elif time_zone == "GMT-10":
+        time_zone = "Pacific/Honolulu"
+    elif time_zone == "GMT-11":
+        time_zone = "US/Samoa"
+    elif time_zone == "GMT-2":
+        time_zone = "Brazil/DeNoronha"
+    elif time_zone == "GMT-4":
+        time_zone = "America/Curacao"
+    elif time_zone == "GMT-5":
+        time_zone = "America/Cancun"
+    elif time_zone == "GMT-6":
+        time_zone = "America/Costa_Rica"
+    elif time_zone == "GMT-7":
+        time_zone = "America/Dawson_Creek"
+    elif time_zone == "GMT-8":
+        time_zone = "Pacific/Pitcairn"
+    elif time_zone == "GMT-9":
+        time_zone = "Pacific/Gambier"    
+    elif time_zone == "GMT0":
+        time_zone = "Atlantic/St_Helena"
+    else:
+        print("No time zone found")
+    
     events_at_day = events_at_day.dt.tz_convert(time_zone)
-  
+    
+    #Only time
     start_time_list_to_plot = events_at_day.dt.time
     start_time_list_to_plot_dt = start_time_list_to_plot.to_frame()
     duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
     events_list_to_plot = src.iloc[events_at_day.index[:],[5]]
+    
+    #Dataframe with time zones
+    df_tz = pd.DataFrame(index=range(0,events_at_day.index.size),columns=['Time_Zone'])     
+    for i in range(0, events_at_day.index.size):
+        df_tz['Time_Zone'][i]= time_zone
     
     #create dataframe with the parameters to plot function
     duration_list_to_plot.reset_index(drop=True, inplace=True)
@@ -129,7 +197,6 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     result2 = pd.concat([result,start_time_list_to_plot_dt] , axis=1)
     
     df_start_end_angle = pd.DataFrame(index=range(0,result2.index.size),columns=['start_angle','end_angle'])
-
     for i in range(0, result2.index.size):
         s_d = str(result2.iloc[i]['Start_Date_UTC'])
         du = result2.iloc[i]['Duration']
@@ -137,8 +204,7 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
         df_start_end_angle['start_angle'][i]= angles[0]
         df_start_end_angle['end_angle'][i] = angles[1]
     
-    df_inner_outer_radius = pd.DataFrame(index=range(0,result2.index.size),columns=['inner_radius','outer_radius'])
-        
+    df_inner_outer_radius = pd.DataFrame(index=range(0,result2.index.size),columns=['inner_radius','outer_radius'])      
     for i in range(0, result2.index.size):
         df_inner_outer_radius['inner_radius'][i]= fr_inner_radius
         df_inner_outer_radius['outer_radius'][i] = fr_outer_radius
@@ -148,7 +214,7 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     for i in range(0,events_list_to_plot.index.size):
         df_colors.color[i] = df_activity_colors.Colors[np.where(events_list_to_plot.Name[i] == df_activity_colors.Activities)[0][0]]
            
-    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot] , axis=1)
+    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot, df_tz] , axis=1)
     
     return ColumnDataSource(data=final_df)
   
@@ -159,7 +225,7 @@ def update_plot(attrname, old, new):
 
 def activities_color_table (array_activities):
     df_activity_colors = pd.DataFrame(index=range(0,array_activities.size,1),columns=['Activities','Colors'])
-    #Palette from https://stackoverflow.com/questions/33295120/how-to-generate-gif-256-colors-palette
+    #create palette
     pal2 = sns.color_palette('pastel').as_hex()
     pal3 = sns.color_palette("Set1", 10).as_hex()
     pal4 = sns.color_palette("Set2", 10).as_hex()
@@ -167,8 +233,7 @@ def activities_color_table (array_activities):
     pal6 = sns.color_palette("BrBG", 7).as_hex()
     pal7 = sns.color_palette("RdBu_r", 7).as_hex()
     pal8 = sns.color_palette("coolwarm", 7).as_hex()
-    pal9 = sns.diverging_palette(10, 220, sep=80, n=7).as_hex()
-    
+    pal9 = sns.diverging_palette(10, 220, sep=80, n=7).as_hex()   
     palette = np.concatenate((pal2,pal3,pal4,pal5,pal6,pal7,pal8,pal9), axis=0)
        
     for i in range(0,array_activities.size,1):
@@ -198,7 +263,7 @@ unique_days_list = LC_data.Start_Date_UTC.dt.date
 index_hours_same_day = np.where(unique_days_list==unique_days_list.unique()[2])
 index_hours_same_day[0][4]
 events_at_day = LC_data.Start_Date_UTC[list(index_hours_same_day[0][:])]
-#Create a dataframe to store unique_days_list in 
+#Create a dataframe to store unique_days_list 
 columns_ud = ['Unique_Days']
 New_data_days_unique = pd.DataFrame(unique_days_list.index,columns=columns_ud)
 for i in New_data_days_unique.index:
@@ -208,7 +273,6 @@ List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
 
 #Colors table per activity
 df_activity_colors = activities_color_table(LC_data.Name.unique())
-
 
 selected_day='2017-01-22'
 source=get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
