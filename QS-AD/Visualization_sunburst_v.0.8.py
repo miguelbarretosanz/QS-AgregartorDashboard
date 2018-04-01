@@ -29,7 +29,6 @@ import time, datetime
 #Color palette
 import seaborn as sns
 
-
 def make_plot(source):
     """
     Plot the annular wedges
@@ -48,7 +47,6 @@ def make_plot(source):
             tooltips=[
     ("Activity", "@Name"),
     ("color", "@color"),
-    ("Time Zone","@Time_Zone"),
     ])
     
     plot = figure(width=700, height=700,tools=[hover], title="",x_axis_type=None, y_axis_type=None, x_range=(-420, 420), y_range=(-420, 420),
@@ -82,171 +80,51 @@ def make_plot(source):
     
     return plot
 
+
 def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     
-    def calculate_angles(start_time, duration, start_date, end_date, selected_day):
+    def calculate_angles(start_time, duration):
         
-        if start_date == selected_day and end_date == selected_day:
-            #Convert HH:MM:SS format in radians 
-            ts = time.strptime(start_time, "%H:%M:%S") 
-            hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
-            hour_rad = math.radians(hour * 15.0)
-            #add "pi/2" to transform radians to a 24 hours clock form.
-            hour_in_radians_to_plot = -hour_rad + np.pi/2
+        ts = time.strptime(start_time, "%H:%M:%S") 
+        hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
+        hour_rad = math.radians(hour * 15.0)
+        #add "pi/2" to transform radians to a 24 hours clock form.
+        hour_in_radians_to_plot = -hour_rad + np.pi/2
             
-            #Use duration and convert seconds in radians
-            sec_rad = time.gmtime(duration)
-            hour_duration = (sec_rad[3] + (sec_rad[4]/60) + (sec_rad[5]/3600))
-            hour_rad_duration = math.radians(hour_duration * 15.0)
-            duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
-        
-            start_angle= hour_in_radians_to_plot - hour_rad_duration
-            end_angle= duration_in_radians_to_plot - hour_rad_duration
+        #Use duration and convert seconds in radians
+        sec_rad = time.gmtime(duration)
+        hour_duration = (sec_rad[3] + (sec_rad[4]/60) + (sec_rad[5]/3600))
+        hour_rad_duration = math.radians(hour_duration * 15.0)
+        duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
+    
+        start_angle= hour_in_radians_to_plot - hour_rad_duration
+        end_angle= duration_in_radians_to_plot - hour_rad_duration
             
-        elif start_date == selected_day and  end_date != selected_day:  
-            st = pd.to_datetime(start_time)
-            mn = pd.to_datetime('00:00:00')
-            dif = mn - st
-            
-            #Convert HH:MM:SS format in radians 
-            ts = time.strptime(start_time, "%H:%M:%S") 
-            hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
-            hour_rad = math.radians(hour * 15.0)
-            #add "pi/2" to transform radians to a 24 hours clock form.
-            hour_in_radians_to_plot = -hour_rad + np.pi/2
-            
-            #Use duration and convert seconds in radians
-            sec_rad = time.gmtime(dif.seconds)
-            hour_duration = (sec_rad[3] + (sec_rad[4]/60) + (sec_rad[5]/3600))
-            hour_rad_duration = math.radians(hour_duration * 15.0)
-            duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
-        
-            start_angle= hour_in_radians_to_plot - hour_rad_duration
-            end_angle= duration_in_radians_to_plot - hour_rad_duration
-            
-        else:
-            #Convert HH:MM:SS format in radians 
-            ts = time.strptime(start_time, "%H:%M:%S") 
-            hour = (ts[3] + (ts[4]/60) + (ts[5]/3600))
-            hour_rad = math.radians(hour * 15.0)
-            #add "pi/2" to transform radians to a 24 hours clock form.
-            hour_in_radians_to_plot = -hour_rad + np.pi/2
-            
-            #Use duration and convert seconds in radians
-            sec_rad = time.gmtime(0)
-            hour_duration = (sec_rad[3] + (sec_rad[4]/60) + (sec_rad[5]/3600))
-            hour_rad_duration = math.radians(hour_duration * 15.0)
-            duration_in_radians_to_plot = (hour_in_radians_to_plot + hour_rad_duration)
-        
-            start_angle= hour_in_radians_to_plot - hour_rad_duration
-            end_angle= duration_in_radians_to_plot - hour_rad_duration
-        
         return start_angle, end_angle
     
-    def convert_time_zone(in_time_zone):
-        if in_time_zone == "GMT+0": 
-            time_zone = "Africa/Casablanca"     
-        elif in_time_zone == "GMT+1":
-            time_zone = "Europe/Amsterdam"
-        elif in_time_zone == "CET":
-            time_zone = "CET"
-        elif in_time_zone == "CEST":
-            time_zone = "Africa/Johannesburg"   
-        elif in_time_zone == "GMT+10":
-            time_zone = "Australia/Brisbane"
-        elif in_time_zone == "GMT+11":
-            time_zone = "Etc/GMT+11"
-        elif in_time_zone == "GMT+12":
-            time_zone = "Etc/GMT+12"        
-        elif in_time_zone == "GMT+2":
-            time_zone = "Africa/Johannesburg"
-        elif in_time_zone == "GMT+3":
-            time_zone = "Asia/Istanbul"
-        elif in_time_zone == "GMT+4":
-            time_zone = "Asia/Dubai"
-        elif in_time_zone == "GMT+5":
-            time_zone = "Asia/Aqtobe"
-        elif in_time_zone == "GMT+6":
-            time_zone = "Asia/Thimbu"
-        elif in_time_zone == "GMT+7":
-            time_zone = "Asia/Jakarta"
-        elif in_time_zone == "GMT+8":
-            time_zone = "Asia/Hong_Kong"
-        elif in_time_zone == "GMT+9":
-            time_zone = "Asia/Tokyo"
-        elif in_time_zone == "GMT-0":
-            time_zone = "Atlantic/St_Helena"
-        elif in_time_zone == "GMT-1":
-            time_zone = "Atlantic/Cape_Verde"
-        elif in_time_zone == "GMT-10":
-            time_zone = "Pacific/Honolulu"
-        elif in_time_zone == "GMT-11":
-            time_zone = "US/Samoa"
-        elif in_time_zone == "GMT-2":
-            time_zone = "Brazil/DeNoronha"
-        elif in_time_zone == "GMT-4":
-            time_zone = "America/Curacao"
-        elif in_time_zone == "GMT-5":
-            time_zone = "America/Cancun"
-        elif in_time_zone == "GMT-6":
-            time_zone = "America/Costa_Rica"
-        elif in_time_zone == "GMT-7":
-            time_zone = "America/Dawson_Creek"
-        elif in_time_zone == "GMT-8":
-            time_zone = "Pacific/Pitcairn"
-        elif in_time_zone == "GMT-9":
-            time_zone = "Pacific/Gambier"    
-        elif in_time_zone == "GMT0":
-            time_zone = "Atlantic/St_Helena"
-        else:
-            print("No time zone found")
-        return time_zone
     
     #Group all the events from the same day
-    index_hours_same_day = np.where(unique_days_list==
-                                    datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
-    events_at_day = src.Start_Date_UTC[list(index_hours_same_day[0][:])]
+    index_hours_same_day = np.where(unique_days_list== datetime.datetime.strptime(selected_day, "%Y-%m-%d").date())
+    events_at_day = src.Start_Time_Local[list(index_hours_same_day[0][:])]
     events_at_day = pd.to_datetime(events_at_day)
-    end_time_events_at_day = src.End_Date_UTC[list(index_hours_same_day[0][:])]
+    end_time_events_at_day = src.End_time_Local[list(index_hours_same_day[0][:])]
     end_time_events_at_day = pd.to_datetime(end_time_events_at_day)
-         
-    #Time zone correction
-    events_at_day = events_at_day.dt.tz_localize('UTC')
-    #Get the time zone from "Start_Time_Local"
-    get_tz = LC_data.Start_Time_Local[index_hours_same_day[0][0]].split(" ")
-    in_time_zone = get_tz[3] 
-    time_zone = convert_time_zone(in_time_zone)
-    events_at_day = events_at_day.dt.tz_convert(time_zone)
-    events_at_day.name = 'Start_Time_Local'
-    
-    #Get the time zone from "End_time_Local"
-    end_time_events_at_day = end_time_events_at_day.dt.tz_localize('UTC')
-    get_tz_end = LC_data.End_time_Local[index_hours_same_day[0][0]].split(" ")
-    in_time_zone_end_date = get_tz_end[3] 
-    time_zone_end = convert_time_zone(in_time_zone_end_date)
-    end_time_events_at_day = end_time_events_at_day.dt.tz_convert(time_zone_end)
-    end_time_events_at_day.name = 'End_time_Local'
-       
+            
     #Select start time from timestamp 
     start_time_list_to_plot = events_at_day.dt.time
     start_time_list_to_plot_dt = start_time_list_to_plot.to_frame()
     start_date = events_at_day.dt.date.to_frame()
     start_date.columns = ['start_date']
     #get durations and events
-    duration_list_to_plot = src.iloc[events_at_day.index[:],[4]]
-    events_list_to_plot = src.iloc[events_at_day.index[:],[5]]
+    #To-do change iloc for the column name
+    duration_list_to_plot = src.iloc[events_at_day.index[:],[0]]
+    events_list_to_plot = src.iloc[events_at_day.index[:],[3]]
     
     #Select end time from timestamp
     end_time_events_at_day_to_plot = end_time_events_at_day.dt.time
     end_time_events_at_day_to_plot_dt = end_time_events_at_day_to_plot.to_frame()
     end_date = end_time_events_at_day.dt.date.to_frame()
     end_date.columns = ['end_date']
-    
- 
-    #Dataframe with time zones
-    df_tz = pd.DataFrame(index=range(0,events_at_day.index.size),columns=['Time_Zone'])     
-    for i in range(0, events_at_day.index.size):
-        df_tz['Time_Zone'][i]= time_zone
     
     #Dataframe with "event duration" and "start time"
     duration_list_to_plot.reset_index(drop=True, inplace=True)
@@ -255,7 +133,6 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     end_time_events_at_day_to_plot_dt.reset_index(drop=True, inplace=True) 
     start_date.reset_index(drop=True, inplace=True)
     end_date.reset_index(drop=True, inplace=True)
-    
     
     result2 = pd.concat([duration_list_to_plot, events_list_to_plot, start_time_list_to_plot_dt, 
                          end_time_events_at_day_to_plot_dt, start_date, end_date] , axis=1)
@@ -266,7 +143,7 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
         du = result2.iloc[i]['Duration']
         start_date = str(result2.iloc[i]['start_date'])
         end_date = str(result2.iloc[i]['end_date'])
-        angles = calculate_angles(s_d, du, start_date, end_date, selected_day)
+        angles = calculate_angles(s_d, du)
         df_start_end_angle['start_angle'][i]= angles[0]
         df_start_end_angle['end_angle'][i] = angles[1]
     
@@ -280,13 +157,13 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     for i in range(0,events_list_to_plot.index.size):
         df_colors.color[i] = df_activity_colors.Colors[np.where(events_list_to_plot.Name[i] == df_activity_colors.Activities)[0][0]]
            
-    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot, df_tz] , axis=1)
+    final_df = pd.concat([df_start_end_angle,df_colors,df_inner_outer_radius,events_list_to_plot] , axis=1)
     
     return ColumnDataSource(data=final_df)
   
 def update_plot(attrname, old, new):
     selected_day = select_day.value
-    src = get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
+    src = get_dataset(LC_data_r,unique_days_list,selected_day,df_activity_colors)
     source.data.update(src.data)
 
 def activities_color_table (array_activities):
@@ -307,7 +184,66 @@ def activities_color_table (array_activities):
         df_activity_colors['Colors'][i] = palette[i]
         
     return df_activity_colors
+
+def until_midnidnight_dataset(LC_data):
+    
+    df1 = pd.DataFrame(index=range(1,1,1),columns=['Start_Time_Local','End_time_Local'
+                       ,'Duration', 'Name','Location' ])
+    
+    for i in LC_data.Start_Time_Local.index:
+        start = str(LC_data.Start_Time_Local[i]).split(" ")
+        end = str(LC_data.End_time_Local[i]).split(" ")
+        if start[1] != end[1]:
+            format = '%H:%M:%S'
+            sh = start[2]
+            eh = end[2]
+            hor,min,sec = eh.split(":")
+            eh_dur = int(hor)*3600 + 60*int(min) + int(sec)            
+            mn = '23:59:59'            
+            hours_one_day = pd.datetime.strptime(mn, format) - pd.datetime.strptime(sh, format)
+            
+            row_a_Start_Time_Local =(start[1] + " " + sh)
+            row_a_End_time_Local = (start[1] + " " +mn)
+            row_a_Duration = hours_one_day.seconds
+            row_a_Name = LC_data.Name[i]
+            row_a_Location = LC_data.Location[i]
+            
+            row_b_Start_Time_Local =(end[1] + " " + "00:00:00")
+            row_b_End_time_Local = (end[1] + " " + end[2])
+            row_b_Duration = eh_dur
+            row_b_Name = LC_data.Name[i]
+            row_b_Location = LC_data.Location[i]
+            df = pd.DataFrame({'Start_Time_Local': [row_a_Start_Time_Local,row_b_Start_Time_Local],
+                   'End_time_Local'  : [row_a_End_time_Local,row_b_End_time_Local],
+                   'Duration'        : [row_a_Duration,row_b_Duration],
+                   'Name'            : [row_a_Name,row_b_Name ],
+                   'Location'        : [row_a_Location,row_b_Location]
+                    })
+    
+            df1 = pd.concat([df,df1] , axis=0)
         
+        else:
+            sh = start[2]
+            eh = end[2]
+            row_a_Start_Time_Local = (start[1] + " " + sh)
+            row_a_End_time_Local = (end[1] + " " + eh )
+            row_a_Duration = LC_data.Duration[i]
+            row_a_Name = LC_data.Name[i]
+            row_a_Location = LC_data.Location[i]
+            df = pd.DataFrame({'Start_Time_Local': [row_a_Start_Time_Local],
+                   'End_time_Local'  : [row_a_End_time_Local],
+                   'Duration'        : [row_a_Duration],
+                   'Name'            : [row_a_Name],
+                   'Location'        : [row_a_Location]            
+                    })
+            #df(drop=True, inplace=True)
+            df1 = pd.concat([df,df1] , axis=0)
+    
+    df1.index = range(df1.shape[0])
+
+    return df1    
+
+    
 #Fixed plot's atributes  
 fr_inner_radius = 140 #First ring (fr) parameters
 fr_outer_radius = 200    
@@ -320,15 +256,12 @@ LC_data = pd.read_csv('../data/Life Cycle/example/LC_export 3.csv')
 #Columns names were changed because the orinals have some espaces and special characters
 # that makes more complicated the string manipulation. For instace : ' NAME' , 'START DATE(UTC)'.
 LC_data.columns = ['Start_Date_UTC', 'End_Date_UTC','Start_Time_Local','End_time_Local','Duration','Name','Location']
-#Convert 'Start_Date' to datetime64[ns] to use pands Time Series / Date functionality.
-#To-do : the function "to_datetime" in converting 'Start_Time_Local' to UTC I wanto to keep in local time.
-LC_data['Start_Date_UTC'] = pd.to_datetime(LC_data.Start_Date_UTC)  
+
+LC_data_r = until_midnidnight_dataset(LC_data)
+LC_data_r['Start_Time_Local'] = pd.to_datetime(LC_data_r.Start_Time_Local)  
 
 #Get all the events' timestamps per unique selected day
-unique_days_list = LC_data.Start_Date_UTC.dt.date
-index_hours_same_day = np.where(unique_days_list==unique_days_list.unique()[2])
-index_hours_same_day[0][4]
-events_at_day = LC_data.Start_Date_UTC[list(index_hours_same_day[0][:])]
+unique_days_list = LC_data_r.Start_Time_Local.dt.date
 
 #Create a dataframe to store unique_days_list 
 columns_ud = ['Unique_Days']
@@ -340,10 +273,11 @@ for i in New_data_days_unique.index:
 List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
 
 #Colors table per activity
-df_activity_colors = activities_color_table(LC_data.Name.unique())
+df_activity_colors = activities_color_table(LC_data_r.Name.unique())
 
-selected_day='2017-01-22'
-source=get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
+
+selected_day='2017-01-26'
+source=get_dataset(LC_data_r,unique_days_list,selected_day,df_activity_colors)
 plot = make_plot(source)
 
 #Timestamp selection

@@ -29,7 +29,6 @@ import time, datetime
 #Color palette
 import seaborn as sns
 
-
 def make_plot(source):
     """
     Plot the annular wedges
@@ -81,6 +80,66 @@ def make_plot(source):
        text_color="lightgrey")
     
     return plot
+
+def convert_time_zone(in_time_zone):
+        if in_time_zone == "GMT+0": 
+            time_zone = "Africa/Casablanca"     
+        elif in_time_zone == "GMT+1":
+            time_zone = "Europe/Amsterdam"
+        elif in_time_zone == "CET":
+            time_zone = "CET"
+        elif in_time_zone == "CEST":
+            time_zone = "Africa/Johannesburg"   
+        elif in_time_zone == "GMT+10":
+            time_zone = "Australia/Brisbane"
+        elif in_time_zone == "GMT+11":
+            time_zone = "Etc/GMT+11"
+        elif in_time_zone == "GMT+12":
+            time_zone = "Etc/GMT+12"        
+        elif in_time_zone == "GMT+2":
+            time_zone = "Africa/Johannesburg"
+        elif in_time_zone == "GMT+3":
+            time_zone = "Asia/Istanbul"
+        elif in_time_zone == "GMT+4":
+            time_zone = "Asia/Dubai"
+        elif in_time_zone == "GMT+5":
+            time_zone = "Asia/Aqtobe"
+        elif in_time_zone == "GMT+6":
+            time_zone = "Asia/Thimbu"
+        elif in_time_zone == "GMT+7":
+            time_zone = "Asia/Jakarta"
+        elif in_time_zone == "GMT+8":
+            time_zone = "Asia/Hong_Kong"
+        elif in_time_zone == "GMT+9":
+            time_zone = "Asia/Tokyo"
+        elif in_time_zone == "GMT-0":
+            time_zone = "Atlantic/St_Helena"
+        elif in_time_zone == "GMT-1":
+            time_zone = "Atlantic/Cape_Verde"
+        elif in_time_zone == "GMT-10":
+            time_zone = "Pacific/Honolulu"
+        elif in_time_zone == "GMT-11":
+            time_zone = "US/Samoa"
+        elif in_time_zone == "GMT-2":
+            time_zone = "Brazil/DeNoronha"
+        elif in_time_zone == "GMT-4":
+            time_zone = "America/Curacao"
+        elif in_time_zone == "GMT-5":
+            time_zone = "America/Cancun"
+        elif in_time_zone == "GMT-6":
+            time_zone = "America/Costa_Rica"
+        elif in_time_zone == "GMT-7":
+            time_zone = "America/Dawson_Creek"
+        elif in_time_zone == "GMT-8":
+            time_zone = "Pacific/Pitcairn"
+        elif in_time_zone == "GMT-9":
+            time_zone = "Pacific/Gambier"    
+        elif in_time_zone == "GMT0":
+            time_zone = "Atlantic/St_Helena"
+        else:
+            print("No time zone found")
+        return time_zone
+    
 
 def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
     
@@ -140,67 +199,9 @@ def get_dataset (src, unique_days_list, selected_day, df_activity_colors):
         
             start_angle= hour_in_radians_to_plot - hour_rad_duration
             end_angle= duration_in_radians_to_plot - hour_rad_duration
-        
+            
         return start_angle, end_angle
     
-    def convert_time_zone(in_time_zone):
-        if in_time_zone == "GMT+0": 
-            time_zone = "Africa/Casablanca"     
-        elif in_time_zone == "GMT+1":
-            time_zone = "Europe/Amsterdam"
-        elif in_time_zone == "CET":
-            time_zone = "CET"
-        elif in_time_zone == "CEST":
-            time_zone = "Africa/Johannesburg"   
-        elif in_time_zone == "GMT+10":
-            time_zone = "Australia/Brisbane"
-        elif in_time_zone == "GMT+11":
-            time_zone = "Etc/GMT+11"
-        elif in_time_zone == "GMT+12":
-            time_zone = "Etc/GMT+12"        
-        elif in_time_zone == "GMT+2":
-            time_zone = "Africa/Johannesburg"
-        elif in_time_zone == "GMT+3":
-            time_zone = "Asia/Istanbul"
-        elif in_time_zone == "GMT+4":
-            time_zone = "Asia/Dubai"
-        elif in_time_zone == "GMT+5":
-            time_zone = "Asia/Aqtobe"
-        elif in_time_zone == "GMT+6":
-            time_zone = "Asia/Thimbu"
-        elif in_time_zone == "GMT+7":
-            time_zone = "Asia/Jakarta"
-        elif in_time_zone == "GMT+8":
-            time_zone = "Asia/Hong_Kong"
-        elif in_time_zone == "GMT+9":
-            time_zone = "Asia/Tokyo"
-        elif in_time_zone == "GMT-0":
-            time_zone = "Atlantic/St_Helena"
-        elif in_time_zone == "GMT-1":
-            time_zone = "Atlantic/Cape_Verde"
-        elif in_time_zone == "GMT-10":
-            time_zone = "Pacific/Honolulu"
-        elif in_time_zone == "GMT-11":
-            time_zone = "US/Samoa"
-        elif in_time_zone == "GMT-2":
-            time_zone = "Brazil/DeNoronha"
-        elif in_time_zone == "GMT-4":
-            time_zone = "America/Curacao"
-        elif in_time_zone == "GMT-5":
-            time_zone = "America/Cancun"
-        elif in_time_zone == "GMT-6":
-            time_zone = "America/Costa_Rica"
-        elif in_time_zone == "GMT-7":
-            time_zone = "America/Dawson_Creek"
-        elif in_time_zone == "GMT-8":
-            time_zone = "Pacific/Pitcairn"
-        elif in_time_zone == "GMT-9":
-            time_zone = "Pacific/Gambier"    
-        elif in_time_zone == "GMT0":
-            time_zone = "Atlantic/St_Helena"
-        else:
-            print("No time zone found")
-        return time_zone
     
     #Group all the events from the same day
     index_hours_same_day = np.where(unique_days_list==
@@ -307,7 +308,68 @@ def activities_color_table (array_activities):
         df_activity_colors['Colors'][i] = palette[i]
         
     return df_activity_colors
+
+def until_midnidnight_dataset(LC_data):
+    
+    df1 = pd.DataFrame(index=range(1,1,1),columns=['Start_Time_Local','End_time_Local'
+                       ,'Duration', 'Name','Location' ])
+    
+    for i in LC_data.Start_Time_Local.index:
+        start = str(LC_data.Start_Time_Local[i]).split(" ")
+        end = str(LC_data.End_time_Local[i]).split(" ")
+        if start[1] != end[1]:
+            format = '%H:%M:%S'
+            sh = start[2]
+            eh = end[2]
+            eh_dur = pd.datetime.strptime(eh, format).second
+            
+            mn = '23:59:59'
+            
+            hours_one_day = pd.datetime.strptime(mn, format) - pd.datetime.strptime(sh, format)
+            
+            row_a_Start_Time_Local =(start[1] + " " + sh)
+            row_a_End_time_Local = (start[1] + " " +mn)
+            row_a_Duration = hours_one_day.seconds
+            row_a_Name = LC_data.Name[i]
+            row_a_Location = LC_data.Location[i]
+            
+            row_b_Start_Time_Local =(end[1] + " " + "00:00:00")
+            row_b_End_time_Local = (end[1] + " " + end[2])
+            row_b_Duration = eh_dur
+            row_b_Name = LC_data.Name[i]
+            row_b_Location = LC_data.Location[i]
+            df = pd.DataFrame({'Start_Time_Local': [row_a_Start_Time_Local,row_b_Start_Time_Local],
+                   'End_time_Local'  : [row_a_End_time_Local,row_b_End_time_Local],
+                   'Duration'        : [row_a_Duration,row_b_Duration],
+                   'Name'            : [row_a_Name,row_b_Name ],
+                   'Location'        : [row_a_Location,row_b_Location]
+                   
+                    })
+            #df(drop=True, inplace=True)
+            df1 = pd.concat([df,df1] , axis=0)
         
+        else:
+            sh = start[2]
+            eh = end[2]
+            row_a_Start_Time_Local = (start[1] + " " + sh)
+            row_a_End_time_Local = (end[1] + " " + eh )
+            row_a_Duration = LC_data.Duration[i]
+            row_a_Name = LC_data.Name[i]
+            row_a_Location = LC_data.Location[i]
+            df = pd.DataFrame({'Start_Time_Local': [row_a_Start_Time_Local],
+                   'End_time_Local'  : [row_a_End_time_Local],
+                   'Duration'        : [row_a_Duration],
+                   'Name'            : [row_a_Name],
+                   'Location'        : [row_a_Location]            
+                    })
+            #df(drop=True, inplace=True)
+            df1 = pd.concat([df,df1] , axis=0)
+    
+    
+
+    return df1    
+
+    
 #Fixed plot's atributes  
 fr_inner_radius = 140 #First ring (fr) parameters
 fr_outer_radius = 200    
@@ -341,6 +403,10 @@ List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
 
 #Colors table per activity
 df_activity_colors = activities_color_table(LC_data.Name.unique())
+
+df_Test = until_midnidnight_dataset(LC_data)
+
+
 
 selected_day='2017-01-22'
 source=get_dataset(LC_data,unique_days_list,selected_day,df_activity_colors)
