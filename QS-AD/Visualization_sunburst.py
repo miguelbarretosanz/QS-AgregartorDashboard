@@ -14,20 +14,22 @@ __maintainer__ = "Miguel Barreto Sanz"
 __email__ = "miguelbarretosanz@gmail.com"
 __status__ = "Development"
 
-from math import log, sqrt
+
 import numpy as np
 import pandas as pd
-from bokeh.plotting import figure
-#Import modules for interactive graphics
-from bokeh.layouts import row, column
-from bokeh.models import HoverTool, ColumnDataSource, Select
-from bokeh.io import curdoc
 #Import modules for conversions to radians.
 import math
 #Import modules for time management and time zones
 import time, datetime
 #Color palette
 import seaborn as sns
+
+from bokeh.plotting import figure
+#Import modules for interactive graphics
+from bokeh.layouts import row, column
+from bokeh.models import HoverTool, ColumnDataSource, Select
+from bokeh.io import curdoc
+from math import log, sqrt
 
 
 def make_plot(source):
@@ -201,7 +203,10 @@ def update_plot(attrname, old, new):
     selected_day = select_day.value
     src = get_dataset(LC_data_r,unique_days_list,selected_day,df_activity_colors)
     source.data.update(src.data)
-
+    print(selected_day)
+    print(source.data.update(src.data))
+    print(src.data)
+    
 
 def activities_color_table (array_activities):
     df_activity_colors = pd.DataFrame(index=range(0,array_activities.size,1),columns=['Activities','Colors'])
@@ -294,22 +299,22 @@ LC_data_r = until_midnidnight_dataset(LC_data)
 LC_data_r['Start_Time_Local'] = pd.to_datetime(LC_data_r.Start_Time_Local)  
         
 #Get all the events' timestamps per unique selected day
-unique_days_list = LC_data_r.Start_Time_Local.dt.date        
-#Create a dataframe to store unique_days_list 
+unique_days_list = LC_data_r.Start_Time_Local.dt.date   
+     
+#Create a dataframe to store unique_days_list to use in the "select menu" 
 columns_ud = ['Unique_Days']
 New_data_days_unique = pd.DataFrame(unique_days_list.index,columns=columns_ud)
 for i in New_data_days_unique.index:
-    New_data_days_unique['Unique_Days'][i]= pd.Timestamp.strftime(unique_days_list[i],'%Y-%m-%d')
-            
-#List to be shown in the "select button"
+    New_data_days_unique['Unique_Days'][i]= pd.Timestamp.strftime(unique_days_list[i],'%Y-%m-%d')      
+#List to be shown in the "select menu"
 List_to_select_days = sorted(list(set(New_data_days_unique['Unique_Days'])))
             
 #Colors table per activity
 df_activity_colors = activities_color_table(LC_data_r.Name.unique())
             
-selected_day='2017-01-26'
-source=get_dataset(LC_data_r,unique_days_list,selected_day,df_activity_colors)
-plot = make_plot(source)
+selected_day= '2017-01-26'
+source= get_dataset(LC_data_r ,unique_days_list ,selected_day , df_activity_colors)
+plot = make_plot(source) 
         
 #Timestamp selection
 select_day = Select(title="Day", value="foo", options=List_to_select_days)

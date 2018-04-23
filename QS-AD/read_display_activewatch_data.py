@@ -26,15 +26,14 @@ import seaborn as sns
 import json
 import pytz
 
-from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource
 from math import log, sqrt
+from bokeh.plotting import figure
+from bokeh.models import HoverTool, ColumnDataSource, Select
 from bokeh.io import curdoc
+from bokeh.layouts import row, column
 
 
-
-
-def make_plot(source):
+def make_plot_aw(source):
     """
     Plot the annular wedges
 
@@ -61,7 +60,6 @@ def make_plot(source):
     ("Activity", "@Name"),
     ("color", "@color"),
     ])
-    
     
     plot = figure(width=700, height=700,tools=[hover], title="",x_axis_type=None, y_axis_type=None, x_range=(-420, 420), y_range=(-420, 420),
                   min_border=0, outline_line_color="white", background_fill_color="#ffffff",)
@@ -115,6 +113,24 @@ def calculate_angles_aw(start_time, duration):
             
     return start_angle, end_angle
 
+
+def get_data_aw(events, day_selected):
+    
+    #Group all the events from the same day
+    index_hours_same_day = np.where(events.date == day_selected)
+    index_hours_same_day = list(index_hours_same_day)
+    events_at_day = events.loc[list(index_hours_same_day[0]),:]
+
+    final_df = pd.DataFrame({ 'start_angle' : events_at_day['start_angle'],
+                         'end_angle' : events_at_day['end_angle'],
+                         'color': events_at_day['color'],
+                         'Name' : events_at_day['Name'],
+                         'inner_radius' : events_at_day['inner_radius'], 
+                         'outer_radius' : events_at_day['outer_radius'], 
+        })
+    return ColumnDataSource(data=final_df)
+
+
 def activities_color_table (array_activities):
     df_activity_colors = pd.DataFrame(index=range(0,array_activities.size,1),columns=['Activities','Colors'])
     #create palette
@@ -135,8 +151,8 @@ def activities_color_table (array_activities):
     return df_activity_colors
 
 
-def data_source(source):
-    if source == 'localhost':
+def data_source(raw_data_source):
+    if raw_data_source == 'localhost':
         # api-endpoint
         URL = "http://127.0.0.1:5600/api/0/buckets/aw-watcher-window_macbook-pro-4.home/events"
         # location given here
@@ -147,13 +163,21 @@ def data_source(source):
         r = requests.get(url = URL, params = PARAMS)
         data = r.json()
 
-    elif source == 'local_file':
+    elif raw_data_source == 'local_file':
         data = json.load(open("../data/ActivityWatch/22-04-2018_aw-event-export-aw-watcher-window_MacBook-Pro-4.local.json"))   
         
     else: 
-        print("Not data source defined. Pleace write localhost or local_file")
+        print("Not data source defined. Please write localhost or local_file")
     return(data)
   
+def update_plot_aw(attrname, old, new):
+    selected_date = select_date.value
+    src = get_data_aw(DT_events, selected_date)
+    source.data.update(src.data)
+    print(src.data)
+    print(selected_date)
+    
+
     
 def utc_to_local(utc_dt):
     local_tz = pytz.timezone('Europe/Paris') 
@@ -169,23 +193,23 @@ sr_outer_radius = fr_outer_radius+52
 tr_inner_radius = fr_outer_radius+52+2, #third ring (tr) parameters
 tr_outer_radius = fr_outer_radius+52+2+42
 
-data = data_source('local_file')
+data_s = data_source('local_file')
 
 #Create dataframe with the necesary data to generate the plot
-DT_events = pd.DataFrame(index=range(0,len(data)),columns=[ 'Name', 'duration', 'timestamp', 'start_angle', 
+DT_events = pd.DataFrame(index=range(0,len(data_s)),columns=[ 'Name', 'duration', 'timestamp', 'start_angle', 
                          'end_angle','inner_radius','outer_radius','color','date'])
 
     
-for i in range(0, len(data)):
-        DT_events['Name'][i] = data[i]["data"]['app']
-        DT_events['duration'][i] = data[i]["duration"]
-        DT_events['timestamp'][i] = data[i]["timestamp"]
+for i in range(0, len(data_s)):
+        DT_events['Name'][i] = data_s[i]["data"]['app']
+        DT_events['duration'][i] = data_s[i]["duration"]
+        DT_events['timestamp'][i] = data_s[i]["timestamp"]
         
         #calculate start time and end time to calculate the angles
-        datatime_timestamp = dateutil.parser.parse(data[i]["timestamp"])
+        datatime_timestamp = dateutil.parser.parse(data_s[i]["timestamp"])
         datatime_timestamp = utc_to_local(datatime_timestamp)
         start_time = datatime_timestamp.timetuple()
-        angles = calculate_angles_aw(start_time,data[i]["duration"])
+        angles = calculate_angles_aw(start_time,data_s[i]["duration"])
        
         DT_events['start_angle'][i] = angles[0]
         DT_events['end_angle'][i] = angles[1]
@@ -200,27 +224,20 @@ df_colors = pd.DataFrame(index=range(0,DT_events.Name.index.size),columns=['colo
 for i in range(0,DT_events.Name.index.size):
     df_colors.color[i] = df_activity_colors.Colors[np.where(DT_events.Name[i] == df_activity_colors.Activities)[0][0]]
 
-for i in range(0, len(data)):
+for i in range(0, len(data_s)):
     DT_events['color'][i] = df_colors.color[i]
 
+#Create a dataframe to store unique_days_list to use in the "select menu" 
+unique_dates = sorted(list(DT_events.date.unique()))
 
-selected_day = '2018-4-20'
-#Group all the events from the same day
-index_hours_same_day = np.where(DT_events.date == selected_day)
-index_hours_same_day = list(index_hours_same_day)
-events_at_day = DT_events.loc[list(index_hours_same_day[0]),:]
+selected_day = '2018-4-10'
+source = get_data_aw(DT_events, selected_day)
+plot_aw = make_plot_aw(source)
 
-
-final_df = pd.DataFrame({ 'start_angle' : events_at_day['start_angle'],
-                         'end_angle' : events_at_day['end_angle'],
-                         'color': events_at_day['color'],
-                         'Name' : events_at_day['Name'],
-                         'inner_radius' : events_at_day['inner_radius'], 
-                         'outer_radius' : events_at_day['outer_radius'], 
-        })
-
-
-source = ColumnDataSource(final_df)
-plot = make_plot(source)
-curdoc().add_root(plot)
-curdoc().title = "Sunburst"
+#Timestamp selection
+select_date = Select(title="Day", value="foo", options=unique_dates)
+select_date.on_change('value', update_plot_aw)
+            
+controls_aw = column(select_date)
+curdoc().add_root(row(plot_aw, controls_aw))
+curdoc().title = "Activity Watch Viz"
